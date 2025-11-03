@@ -18,7 +18,7 @@ export const dataSourceOptions: DataSourceOptions = {
     ],
     logging: process.env.DB_LOGGING === 'true',
     subscribers: [],
-    schema: 'public'
+    schema: 'connectify_schema'
 };
 
 const dataSource = new DataSource(dataSourceOptions);
