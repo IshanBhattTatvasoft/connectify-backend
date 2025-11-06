@@ -1,175 +1,99 @@
-// src/auth/auth.service.ts
 import {
-  Injectable,
   BadRequestException,
+  Injectable,
   UnauthorizedException,
-  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
-import { OAuth2Client } from 'google-auth-library';
-
-import { Users } from '../users/entity/users.entity';
-import { Roles } from '../roles/entity/roles.entity';
-import { SignupUserDTO } from './dto/signup-user.dto';
 import { LoginUserDTO } from './dto/login-user.dto';
+import { SignupUserDTO } from './dto/signup-user.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { User, UserDocument } from '../users/schema/users.schema';
+import { AuthenticatedUser } from './interfaces/auth-user.interface';
+import { buildResponse, handleGoogleAuthFlow } from 'src/helper';
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-  private readonly googleClient: OAuth2Client;
-  private readonly defaultRoleName = 'USER';
-
   constructor(
-    @InjectRepository(Users)
-    private readonly usersRepo: Repository<Users>,
-    @InjectRepository(Roles)
-    private readonly rolesRepo: Repository<Roles>,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     private readonly jwtService: JwtService,
-  ) {
-    this.googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-  }
+  ) {}
 
-  /* -------------------------------------------------
-   *  PUBLIC API
-   * ------------------------------------------------*/
-  async signup(dto: SignupUserDTO): Promise<AuthResponseDto> {
-    if (dto.id_token) {
-      return this.handleGoogleFlow(dto.id_token);
-    }
+  /** ------------------ Token Builders ------------------ */
+  async buildResponse(user: UserDocument): Promise<AuthResponseDto> {
+    const payload = { sub: (user._id as Types.ObjectId).toString(), email: user.email };
 
-    // ---- Local signup ----
-    if (!dto.email || !dto.password) {
-      throw new BadRequestException('Email and password are required');
-    }
-
-    const exists = await this.usersRepo.findOneBy({ email: dto.email });
-    if (exists) {
-      throw new BadRequestException('User already exists');
-    }
-
-    const hash = await bcrypt.hash(dto.password, 10);
-    const user = this.usersRepo.create({
-      email: dto.email,
-      password: hash,
-      // optionally set default role here if you don't use a trigger
-    } as any);
-
-    const saved = await this.usersRepo.save(user);
-    return this.buildResponse(saved[0]);
-  }
-
-  async login(dto: LoginUserDTO): Promise<AuthResponseDto> {
-    if (dto.id_token) {
-      return this.handleGoogleFlow(dto.id_token);
-    }
-
-    // ---- Local login ----
-    if (!dto.email || !dto.password) {
-      throw new BadRequestException('Email and password are required');
-    }
-
-    const user = await this.usersRepo.findOne({
-      where: { email: dto.email },
-      select: ['id', 'email', 'password', 'role'],
-      relations: ['role'],
-    });
-
-    if (!user || !user.password) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const match = await bcrypt.compare(dto.password, user.password);
-    if (!match) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    return this.buildResponse(user);
-  }
-
-  /* -------------------------------------------------
-   *  PRIVATE HELPERS
-   * ------------------------------------------------*/
-  private async handleGoogleFlow(idToken: string): Promise<AuthResponseDto> {
-    const payload = await this.verifyGoogleToken(idToken);
-    const email = payload.email!;
-
-    let user = await this.usersRepo.findOne({
-      where: { email },
-      relations: ['role'],
-    });
-
-    if (user) {
-      return this.buildResponse(user);
-    }
-
-    // ---- First-time Google user ----
-    return this.usersRepo.manager.transaction(async (tx) => {
-      // 1. Resolve default role (cached in prod)
-      let role = await tx.findOne(Roles, {
-        where: { name: this.defaultRoleName },
-      });
-      if (!role) {
-        this.logger.warn(
-          `Default role "${this.defaultRoleName}" not found – creating it`,
-        );
-        role = tx.create(Roles, { name: this.defaultRoleName });
-        await tx.save(Roles, role);
-      }
-
-      // 2. Create user
-      const newUser = tx.create(Users, {
-        email,
-        name: payload.name ?? '',
-        provider: 'google',
-        provider_id: payload.sub,
-        role,
-      });
-
-      const saved = await tx.save(Users, newUser);
-      return this.buildResponse(saved);
-    });
-  }
-
-  private async verifyGoogleToken(idToken: string): Promise<any> {
-    try {
-      const ticket = await this.googleClient.verifyIdToken({
-        idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
-      const payload = ticket.getPayload();
-      if (!payload?.email) {
-        throw new UnauthorizedException('Invalid Google token');
-      }
-      return payload;
-    } catch (err) {
-      this.logger.error('Google token verification failed', err);
-      throw new UnauthorizedException('Invalid Google token');
-    }
-  }
-
-  private async buildResponse(user: Users): Promise<AuthResponseDto> {
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role?.name ?? this.defaultRoleName,
-    };
-    
     const accessToken = await this.jwtService.signAsync(payload, {
-      expiresIn: process.env.JWT_EXPIRES_IN ?? '15m',
+      expiresIn: this.seconds(process.env.ACCESS_TOKEN_EXPIRY ?? '15m'),
+    });
+
+    const refreshToken = await this.jwtService.signAsync(payload, {
+      expiresIn: this.seconds(process.env.REFRESH_TOKEN_EXPIRY ?? '7d'),
     });
 
     return {
       access_token: accessToken,
+      refresh_token: refreshToken,
       user: {
-        id: user.id,
+        id: (user._id as Types.ObjectId).toString(),
         email: user.email,
-        name: user.username ?? '',
-        role: user.role?.name ?? this.defaultRoleName,
+        username: user.username ?? '',
       },
     };
+  }
+
+  /** ------------------ Helpers ------------------ */
+  private seconds(value: string): number {
+    const map: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
+    const match = value.match(/^(\d+)([smhd]?)$/);
+    if (!match) return 900; // default 15m
+    return parseInt(match[1], 10) * (map[match[2]] || 60);
+  }
+
+  /** ------------------ Login / Validation ------------------ */
+  async validateUser(
+    loginUserDTO: LoginUserDTO,
+  ): Promise<AuthenticatedUser | null> {
+    const { email, password } = loginUserDTO;
+
+    const user = await this.userModel
+      .findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } })
+      .select('+password_hash')
+      .exec();
+
+    if (!user) return null;
+
+    const passwordMatch = await bcrypt.compare(password, user.password_hash!);
+    if (!passwordMatch) return null;
+
+    const { password_hash, ...rest } = user.toObject();
+    return rest as AuthenticatedUser;
+  }
+
+  /** ------------------ Signup ------------------ */
+  async signUp(dto: SignupUserDTO): Promise<AuthResponseDto> {
+    if (dto.id_token) {
+      return handleGoogleAuthFlow(dto.id_token);
+    }
+
+    if (!dto.email || !dto.password) {
+      throw new BadRequestException('Email and password are required');
+    }
+
+    const existing = await this.userModel.findOne({ email: dto.email });
+    if (existing) {
+      throw new BadRequestException('User already exists');
+    }
+
+    const hash = await bcrypt.hash(dto.password, 10);
+    const newUser = new this.userModel({
+      email: dto.email,
+      password_hash: hash,
+    });
+
+    const savedUser = await newUser.save();
+    return this.buildResponse(savedUser);
   }
 }
