@@ -8,3 +8,8 @@ export class AuthResponseDto {
     username: string;
   };
 }
+
+export interface JwtPayloadDto {
+  sub: string;   // always string
+  email: string;
+}

@@ -10,47 +10,16 @@ import * as bcrypt from 'bcrypt';
 import { LoginUserDTO } from './dto/login-user.dto';
 import { SignupUserDTO } from './dto/signup-user.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
-import { User, UserDocument } from '../users/schema/users.schema';
+import { User, UserDocument } from '../users/model/users.model';
 import { AuthenticatedUser } from './interfaces/auth-user.interface';
 import { buildResponse, handleGoogleAuthFlow } from 'src/helper';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(User.name) private userModel: Model<User>,
     private readonly jwtService: JwtService,
   ) {}
-
-  /** ------------------ Token Builders ------------------ */
-  async buildResponse(user: UserDocument): Promise<AuthResponseDto> {
-    const payload = { sub: (user._id as Types.ObjectId).toString(), email: user.email };
-
-    const accessToken = await this.jwtService.signAsync(payload, {
-      expiresIn: this.seconds(process.env.ACCESS_TOKEN_EXPIRY ?? '15m'),
-    });
-
-    const refreshToken = await this.jwtService.signAsync(payload, {
-      expiresIn: this.seconds(process.env.REFRESH_TOKEN_EXPIRY ?? '7d'),
-    });
-
-    return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      user: {
-        id: (user._id as Types.ObjectId).toString(),
-        email: user.email,
-        username: user.username ?? '',
-      },
-    };
-  }
-
-  /** ------------------ Helpers ------------------ */
-  private seconds(value: string): number {
-    const map: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
-    const match = value.match(/^(\d+)([smhd]?)$/);
-    if (!match) return 900; // default 15m
-    return parseInt(match[1], 10) * (map[match[2]] || 60);
-  }
 
   /** ------------------ Login / Validation ------------------ */
   async validateUser(
@@ -73,9 +42,9 @@ export class AuthService {
   }
 
   /** ------------------ Signup ------------------ */
-  async signUp(dto: SignupUserDTO): Promise<AuthResponseDto> {
+  async signUp(dto: SignupUserDTO): Promise<Partial<User>> {
     if (dto.id_token) {
-      return handleGoogleAuthFlow(dto.id_token);
+      return handleGoogleAuthFlow(dto.id_token, this.userModel, this.jwtService);
     }
 
     if (!dto.email || !dto.password) {
@@ -86,14 +55,28 @@ export class AuthService {
     if (existing) {
       throw new BadRequestException('User already exists');
     }
-
-    const hash = await bcrypt.hash(dto.password, 10);
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(dto.password, salt);
+    const username = dto.email.split('@')[0];
     const newUser = new this.userModel({
+      username: username,
       email: dto.email,
       password_hash: hash,
     });
 
     const savedUser = await newUser.save();
-    return this.buildResponse(savedUser);
+
+    const userResponse: Partial<User> = {
+      id: savedUser._id,
+      username: savedUser.username,
+      email: savedUser.email,
+      created_at: savedUser.created_at,
+      status: {
+        name: 'active',
+        code: 'ACTIVE'
+      }
+    };
+
+    return userResponse;
   }
 }
