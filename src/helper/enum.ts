@@ -6,10 +6,12 @@ export enum ErrorType {
   InternalServerError = 'InternalServerError',
   InvalidEmail = 'InvalidEmail',
   InvalidCredentials = 'InvalidCredentials',
-  InvalidGoogleToken = 'InvalidGoogleToken'
+  InvalidGoogleToken = 'InvalidGoogleToken',
+  AccountNotEnabled = 'AccountNotEnabled'
 }
 
 export enum UsersOperation {
   LOGIN = 'USER_LOGIN',
-  SIGNUP = 'SIGNUP'
+  SIGNUP = 'SIGNUP',
+  OTP_SENT = 'OTP_SENT'
 }

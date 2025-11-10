@@ -11,6 +11,8 @@ export function getMessageByCode(messageKey: string): string {
       return Messages.UserMessages.Login;
     case UsersOperation.SIGNUP:
       return Messages.UserMessages.Signup;
+    case UsersOperation.OTP_SENT:
+      return Messages.UserMessages.Otp_Sent;
 
     default:
       return Messages.InternalServerError;

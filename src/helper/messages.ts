@@ -10,7 +10,9 @@ export const ErrorMessages: Record<ErrorType, string> = {
     'There was some technical error processing this request. Please try again.',
   [ErrorType.InvalidEmail]: 'Please enter a valid email address.',
   [ErrorType.InvalidCredentials]: 'Invalid credentials',
-  [ErrorType.InvalidGoogleToken]: 'Invalid Google Token'
+  [ErrorType.InvalidGoogleToken]: 'Invalid Google Token',
+  [ErrorType.AccountNotEnabled]:
+    'Your account is not enabled. Please contact your system administrator.',
 };
 
 export const Messages = {

@@ -27,7 +27,7 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException(message);
     }
 
-    const user = await this.authService.validateUser(loginUserDto);
+    const user = await this.authService.login(loginUserDto);
     if (!user) {
       throw new UnauthorizedException(
         ErrorMessages[ErrorType.InvalidCredentials]

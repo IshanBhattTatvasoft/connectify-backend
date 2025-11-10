@@ -24,7 +24,7 @@ export async function handleGoogleAuthFlow(
   idToken: string,
   userModel: Model<User>,
   jwtService: JwtService,
-): Promise<any> {
+): Promise<{ accessToken: string; refreshToken: string }> {
   const payload = await verifyGoogleToken(idToken);
 
   // Find existing user by email
@@ -39,12 +39,11 @@ export async function handleGoogleAuthFlow(
 
   // If user exists and is Google → login
   if (user) {
-    return buildResponse(user, jwtService);
+    return generateToken(user, jwtService);
   }
 
   // First-time Google user → create
-  const username =
-    payload.email.split('@')[0] + Math.floor(Math.random() * 9999);
+  const username = payload.email.split('@')[0];
   const newUser = new userModel({
     email: payload.email,
     username,
@@ -55,7 +54,7 @@ export async function handleGoogleAuthFlow(
   });
 
   const savedUser = await newUser.save();
-  return buildResponse(savedUser, jwtService);
+  return generateToken(savedUser, jwtService);
 }
 
 async function verifyGoogleToken(idToken: string): Promise<GooglePayload> {
@@ -79,7 +78,10 @@ async function verifyGoogleToken(idToken: string): Promise<GooglePayload> {
   }
 }
 
-async function buildResponse(user: User, jwtService: JwtService) {
+export async function generateToken(
+  user: User,
+  jwtService: JwtService,
+): Promise<{ accessToken: string; refreshToken: string }> {
   const idAsString = (user._id as ObjectId).toHexString();
   const payload: Record<string, any> = {
     sub: idAsString,
@@ -89,22 +91,17 @@ async function buildResponse(user: User, jwtService: JwtService) {
     iat: Math.floor(Date.now() / 1000),
   };
   const accessToken = await jwtService.signAsync(payload as any, {
-    secret: process.env.JWT_ACCESS_SECRET,
-    expiresIn: process.env.ACCESS_TOKEN_EXPIRY ?? '15m' as any,
+    secret: process.env.ACCESS_TOKEN_SECRET,
+    expiresIn: process.env.ACCESS_TOKEN_EXPIRY ?? ('15m' as any),
   });
 
   const refreshToken = await jwtService.signAsync(payload as any, {
-    secret: process.env.JWT_REFRESH_SECRET,
-    expiresIn: process.env.REFRESH_TOKEN_EXPIRY ?? '7d' as any,
+    secret: process.env.REFRESH_TOKEN_SECRET,
+    expiresIn: process.env.REFRESH_TOKEN_EXPIRY ?? ('7d' as any),
   });
 
   return {
-    access_token: accessToken,
-    refresh_token: refreshToken,
-    user: {
-      id: user._id,
-      email: user.email,
-      username: user.username,
-    },
+    accessToken: accessToken,
+    refreshToken: refreshToken,
   };
 }
