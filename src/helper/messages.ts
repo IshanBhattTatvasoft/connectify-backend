@@ -11,8 +11,20 @@ export const ErrorMessages: Record<ErrorType, string> = {
   [ErrorType.InvalidEmail]: 'Please enter a valid email address.',
   [ErrorType.InvalidCredentials]: 'Invalid credentials',
   [ErrorType.InvalidGoogleToken]: 'Invalid Google Token',
-  [ErrorType.AccountNotEnabled]:
-    'Your account is not enabled. Please contact your system administrator.',
+  [ErrorType.AccountNotActive]:
+    'Your account is not active. Please contact your system administrator.',
+  [ErrorType.InvalidPassword]:
+    'Password is invalid. Please enter valid password',
+  [ErrorType.EmailPasswordRequired]: 'Email and password are required',
+  [ErrorType.UserNotFound]: 'User not found. Please create an account',
+  [ErrorType.SafeIntError]:
+    '[#PROPERTY_NAME#] must be an integer between 0 and [#SAFE_INTEGER_RANGE#].',
+  [ErrorType.OnlyAlphaNumericSpaceDashAllowed]:
+    'Only alphabets, numbers, spaces, and dashes are allowed.',
+  [ErrorType.OnlyAlphabetsUnderscoreAllowed]:
+    'Only alphabets and underscores are allowed.',
+  [ErrorType.LookupNotFound]: 'Lookup not found.',
+  [ErrorType.LookupValueExists]: 'Lookup value already exists. Please try some other value.'
 };
 
 export const Messages = {
@@ -21,7 +33,7 @@ export const Messages = {
   UserMessages: {
     Login: 'Login successful',
     Signup: 'Sign up successful',
-    Otp_Sent: 'Verification OTP sent successfully',
+    Otp_Sent: 'If account exists, verification otp has been sent',
     UpdatePassword: 'Password updated successfully',
     ResetPassword: 'Password reset successfully',
     Fetched: 'User details fetched successfully',
@@ -30,6 +42,9 @@ export const Messages = {
     ResendPassword: 'Password setup link has been resent successfully.',
     UserCreated: 'User added successfully.',
     UserStatusUpdated: 'User Status updated successfully.',
-    Deleted: 'User Deleted Successfully.'
-  }
+    Deleted: 'User Deleted Successfully.',
+  },
+  LookupMessages: {
+    Created: 'Lookup value has ben added successfully',
+  },
 };

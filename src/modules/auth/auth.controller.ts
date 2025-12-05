@@ -5,11 +5,19 @@ import { ResponseUtil } from 'src/interceptors/response.interceptor';
 import { UsersOperation } from 'src/helper/enum';
 import { IResponse } from 'src/helper/interface';
 import { User } from '../users/model/users.model';
-import { SendOtpDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto, SendOtpDto, VerifyOtpDto } from './dto/forgot-password.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
+
+  @Post('login')
+  async login(
+    @Req() req,
+  ): Promise<IResponse<{ accessToken: string; refreshToken: string }>> {
+    const result = await this.authService.login(req.body);
+    return ResponseUtil.success(result, UsersOperation.LOGIN, HttpStatus.OK);
+  }
 
   @Post('sign-up')
   async signup(
@@ -20,14 +28,40 @@ export class AuthController {
   }
 
   @Post('google/callback')
-  async handleGoogleCallback(@Body('code') code: string): Promise<IResponse<{ accessToken: string; refreshToken: string }>> {
+  async handleGoogleCallback(
+    @Body('code') code: string,
+  ): Promise<IResponse<{ accessToken: string; refreshToken: string }>> {
     const result = await this.authService.handleGoogleCallback(code);
     return ResponseUtil.success(result, UsersOperation.LOGIN, HttpStatus.OK);
   }
 
   @Post('forgot-password/send-otp')
   async sendOtp(@Body() sendOtpDto: SendOtpDto): Promise<IResponse<null>> {
+    console.log('sendOtp called');
     await this.authService.sendOtp(sendOtpDto.email);
     return ResponseUtil.success(null, UsersOperation.OTP_SENT, HttpStatus.OK);
+  }
+
+  @Post('forgot-password/verify-otp')
+  async verifyOTP(
+    @Body() verifyOtpDto: VerifyOtpDto,
+  ): Promise<IResponse<{ verified: boolean; token?: string }>> {
+    const result = await this.authService.verifyOtp(
+      verifyOtpDto.email,
+      verifyOtpDto.otp,
+    );
+    return ResponseUtil.success(result, undefined, HttpStatus.OK);
+  }
+
+  @Post('/reset-password')
+  async resetPassword(
+    @Body() resetPasswordDto: ResetPasswordDto
+  ): Promise<IResponse<null>> {
+    await this.authService.resetPassword(resetPasswordDto);
+    return ResponseUtil.success(
+      null,
+      UsersOperation.RESET_PASSWORD,
+      HttpStatus.OK
+    );
   }
 }

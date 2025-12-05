@@ -5,17 +5,23 @@ import * as dotenv from 'dotenv';
 import { MongooseModule } from '@nestjs/mongoose';
 import { LookupsModule } from './modules/lookups/lookups.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ConfigModule } from '@nestjs/config';
 
 dotenv.config();
 
 @Module({
   imports: [
-    MongooseModule.forRoot(process.env.MONGODB_URI || ''),
+    ConfigModule.forRoot({
+      isGlobal: true, // 🔥 This makes process.env available everywhere
+    }),
+
+    MongooseModule.forRoot(
+      process.env.MONGODB_URI!,
+    ),
     LookupsModule,
-    AuthModule
+    AuthModule,
   ],
   controllers: [],
   providers: [],
 })
-
 export class AppModule {}

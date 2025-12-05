@@ -10,6 +10,7 @@ import { Model, Types } from 'mongoose';
 import { OAuth2Client } from 'google-auth-library';
 import { JwtService } from '@nestjs/jwt';
 import { ObjectId } from 'mongodb';
+import { LookupDetail } from 'src/modules/lookups/model/lookup_details.model';
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -23,12 +24,23 @@ interface GooglePayload {
 export async function handleGoogleAuthFlow(
   idToken: string,
   userModel: Model<User>,
+  lookupDetailModel: Model<LookupDetail>,
   jwtService: JwtService,
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const payload = await verifyGoogleToken(idToken);
 
   // Find existing user by email
   let user = await userModel.findOne({ email: payload.email }).exec();
+  if(!user){
+    throw new BadRequestException(
+      'User not found',
+    );
+  }
+  let lookupDetail = await lookupDetailModel.findOne({ id: user.status_id });
+
+  if(!lookupDetail || lookupDetail?.code !== 'ACTIVE'){
+    throw new BadRequestException('User not active');
+  }
 
   // If user exists but not via Google → block
   if (user && user.provider_id && user.provider_id !== 'google') {
@@ -39,7 +51,14 @@ export async function handleGoogleAuthFlow(
 
   // If user exists and is Google → login
   if (user) {
-    return generateToken(user, jwtService);
+    if (lookupDetail && lookupDetail.code !== 'ACTIVE') {
+      throw new BadRequestException(
+        'Email already registered with another provider',
+      );
+    }
+    if (lookupDetail?.code) {
+      return generateToken(user, lookupDetail?.code, jwtService);
+    }
   }
 
   // First-time Google user → create
@@ -54,7 +73,7 @@ export async function handleGoogleAuthFlow(
   });
 
   const savedUser = await newUser.save();
-  return generateToken(savedUser, jwtService);
+  return generateToken(savedUser, lookupDetail?.code, jwtService);
 }
 
 async function verifyGoogleToken(idToken: string): Promise<GooglePayload> {
@@ -80,6 +99,7 @@ async function verifyGoogleToken(idToken: string): Promise<GooglePayload> {
 
 export async function generateToken(
   user: User,
+  user_status: string,
   jwtService: JwtService,
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const idAsString = (user._id as ObjectId).toHexString();
@@ -87,7 +107,7 @@ export async function generateToken(
     sub: idAsString,
     email: user.email,
     username: user.username,
-    status: user.status?.code,
+    status: user_status,
     iat: Math.floor(Date.now() / 1000),
   };
   const accessToken = await jwtService.signAsync(payload as any, {

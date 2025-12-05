@@ -1,5 +1,11 @@
-import { Controller, Post, Req, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Req, HttpStatus, Body, Param } from '@nestjs/common';
 import { LookupsService } from './lookups.service';
+import { AddLookupDetailDto } from './dto/lookup-detail.dto';
+import { IResponse, RouteIdsParamsDto } from 'src/helper/interface';
+import { LookupDetail } from './interface/lookup_detail.interface';
+import { ResponseUtil } from 'src/interceptors/response.interceptor';
+import { LookupsOperation } from 'src/helper/enum';
+import { toLookupDetailResponse } from 'src/helper/utils';
 
 @Controller('lookups')
 export class LookupsController {
@@ -26,5 +32,22 @@ export class LookupsController {
       message: 'Lookup detail fetched successfully',
       data: lookupDetail,
     };
+  }
+
+  @Post('/:id/values')
+  async addLookupDetail(
+    @Body() addLookupDetailDto: AddLookupDetailDto,
+    @Param() params: RouteIdsParamsDto,
+  ): Promise<IResponse<LookupDetail>> {
+    const { id } = params;
+    const result = await this.lookupsService.createLookupValues(
+      addLookupDetailDto,
+      id,
+    );
+    return ResponseUtil.success(
+      toLookupDetailResponse(result),
+      LookupsOperation.CREATED,
+      HttpStatus.OK,
+    );
   }
 }

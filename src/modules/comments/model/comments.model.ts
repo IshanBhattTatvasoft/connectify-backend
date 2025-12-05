@@ -12,7 +12,11 @@ export class Comments extends Document {
   user_id: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'Comments', default: null })
-  parent_comment_id?: Types.ObjectId | null;
+  parent_comment_id: Types.ObjectId;
+
+  // Materialized path for nested comments
+  @Prop({ type: [Types.ObjectId], default: [] })
+  ancestors: Types.ObjectId[];
 
   @Prop({ type: String, required: true })
   content: string;
@@ -22,6 +26,9 @@ export class Comments extends Document {
 
   @Prop({ type: Number, default: 0 })
   downvotes: number;
+
+  @Prop({ default: false })
+  is_deleted: boolean;
 }
 
 export const CommentsSchema = SchemaFactory.createForClass(Comments);
@@ -30,3 +37,6 @@ CommentsSchema.pre('findOneAndUpdate', function (next) {
   this.set({ updated_at: new Date() });
   next();
 });
+
+CommentsSchema.index({ post_id: 1, parent_comment_id: 1 });
+CommentsSchema.index({ post_id: 1, ancestors: 1 });

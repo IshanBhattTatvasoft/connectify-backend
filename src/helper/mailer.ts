@@ -5,27 +5,32 @@ dotenv.config();
 
 export class Mailer {
   private static transporter = nodemailer.createTransport({
+    service: 'gmail',
     host: 'smtp.gmail.com',
     port: 587,
     secure: false,
     auth: {
       user: process.env.EMAIL_ID,
-      pass: process.env.EMAIL_PASS
+      pass: process.env.EMAIL_PASS,
     },
-    pool: true,
-    maxConnections: 5,
-    maxMessages: 100,
     tls: {
-      rejectUnauthorized: false
-    }
+      rejectUnauthorized: false,
+    },
   });
 
   static async sendMail(to: string, subject?: string, html?: string) {
+    Mailer.transporter.verify((error, success) => {
+      if (error) {
+        console.error('SMTP connection error:', error);
+      } else {
+        console.log('SMTP server is ready to take messages');
+      }
+    });
     await this.transporter.sendMail({
-      from: `"SIMS Support" <${process.env.EMAIL_ID}>`,
+      from: `"Connectify Support" <${process.env.EMAIL_ID}>`,
       to,
       subject,
-      html
+      html,
     });
   }
 }

@@ -4,11 +4,13 @@ import { User, UserSchema } from '../users/model/users.model';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtModule } from '@nestjs/jwt';
+import { LookupDetail, LookupDetailsSchema } from '../lookups/model/lookup_details.model';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
+      { name: LookupDetail.name, schema: LookupDetailsSchema },
     ]),
     JwtModule.register({
       secret: process.env.ACCESS_TOKEN_SECRET,

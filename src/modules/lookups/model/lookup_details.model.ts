@@ -13,11 +13,16 @@ export class LookupDetail extends Document {
   code: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Lookup', required: true})
-  lookup_id: string;
+  lookup_id: Types.ObjectId;
 }
 
 export const LookupDetailsSchema = SchemaFactory.createForClass(LookupDetail);
+export type LookupDetailDocument = LookupDetail & Document;
+
 LookupDetailsSchema.pre('findOneAndUpdate', function (next) {
     this.set({updated_at: new Date()});
     next();
 });
+
+LookupDetailsSchema.index({ lookup_id: 1 });
+LookupDetailsSchema.index({ lookup_id: 1, code: 1 }, { unique: true });

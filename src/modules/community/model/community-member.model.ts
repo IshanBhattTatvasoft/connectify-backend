@@ -12,26 +12,22 @@ export class CommunityMember extends Document {
   @Prop({ type: Types.ObjectId, ref: 'Community', required: true })
   community_id: Types.ObjectId;
 
-  @Prop({
-    type: Object,
-    required: true,
-  })
-  role: {
-    id: string;
-    name: string;
-    code: string;
-  };
+  @Prop({ type: Types.ObjectId, ref: 'LookupDetail', required: true })
+  role_id: Types.ObjectId;
 
-  @Prop({ required: true })
-  is_active: boolean;
+  @Prop({ default: false })
+  is_banned: boolean; // true = removed by moderator
 
-  @Prop({ required: true })
-  is_deleted: boolean;
+  @Prop({ default: true })
+  is_active: boolean; // false = left
 }
 
 export const CommunityMemberSchema =
   SchemaFactory.createForClass(CommunityMember);
+
 CommunityMemberSchema.pre('findOneAndUpdate', function (next) {
   this.set({ updated_at: new Date() });
   next();
 });
+
+CommunityMemberSchema.index({ user_id: 1, community_id: 1}, {unique: true});

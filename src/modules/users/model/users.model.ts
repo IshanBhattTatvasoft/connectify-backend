@@ -1,7 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
-@Schema({ collection: 'user' })
+@Schema({
+  collection: 'user',
+  timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
+})
 export class User extends Document {
   @Prop({ required: true, unique: true, maxLength: 100 })
   username: string;
@@ -9,33 +12,29 @@ export class User extends Document {
   @Prop({ required: true, unique: true, maxlength: 150 })
   email: string;
 
-  @Prop({ required: false })
+  @Prop()
   password_hash?: string;
 
-  @Prop({ required: false, maxLength: 15 })
+  @Prop({ maxLength: 15 })
   mobile_no?: string;
 
-  @Prop({ required: false, type: String})
+  @Prop({ maxlength: 300 })
   address?: string;
 
-  @Prop({ required: false })
+  @Prop()
   provider_id?: string;
 
-  @Prop({
-    type: Object,
-    default: null,
-  })
-  status: {
-    id?: string;
-    name: string;
-    code: string;
-  };
+  @Prop({ type: Types.ObjectId, ref: 'LookupDetail', required: true }) // reference from LookupDetails table
+  status_id: Types.ObjectId;
 
-  @Prop({ type: Date, default: Date.now }) // created timestamp
-  created_at: Date;
+  @Prop()
+  otp?: string;
 
-  @Prop({ type: Date, default: null })
-  updated_at?: Date;
+  @Prop()
+  otp_expiration_time?: Date;
+
+  @Prop({ default: false })
+  is_reset_token_used: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
