@@ -18,12 +18,16 @@ export class CommunityMember extends Document {
   @Prop({ default: false })
   is_banned: boolean; // true = removed by moderator
 
-  @Prop({ default: true })
-  is_active: boolean; // false = left
+  @Prop({ required: true, type: Date})
+  joined_at: Date;
+  
+  @Prop()
+  left_at?: Date;
 }
 
 export const CommunityMemberSchema =
   SchemaFactory.createForClass(CommunityMember);
+export type CommunityMemberDocument = CommunityMember & Document;
 
 CommunityMemberSchema.pre('findOneAndUpdate', function (next) {
   this.set({ updated_at: new Date() });

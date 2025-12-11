@@ -17,3 +17,9 @@ export class RouteIdsParamsDto {
   @IsOptional()
   id: string;
 }
+
+export interface UserDetails{
+  id: string;
+  email: string;
+  status: string;
+}

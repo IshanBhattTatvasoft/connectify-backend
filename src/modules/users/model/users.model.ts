@@ -35,6 +35,9 @@ export class User extends Document {
 
   @Prop({ default: false })
   is_reset_token_used: boolean;
+
+  @Prop()
+  created_at: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

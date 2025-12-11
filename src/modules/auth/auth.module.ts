@@ -4,25 +4,24 @@ import { User, UserSchema } from '../users/model/users.model';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtModule } from '@nestjs/jwt';
-import { LookupDetail, LookupDetailsSchema } from '../lookups/model/lookup_details.model';
+import { LookupDetail, LookupDetailSchema } from '../lookups/model/lookup_details.model';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { LookupsModule } from '../lookups/lookups.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
-      { name: LookupDetail.name, schema: LookupDetailsSchema },
+      { name: LookupDetail.name, schema: LookupDetailSchema },
     ]),
     JwtModule.register({
       secret: process.env.ACCESS_TOKEN_SECRET,
       signOptions: { expiresIn: '15m' },
     }),
-    JwtModule.register({
-        secret: process.env.REFRESH_TOKEN_SECRET,
-        signOptions: { expiresIn: '7d' }
-    })
+    LookupsModule
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, JwtStrategy],
   exports: [AuthService],
 })
 export class AuthModule {}

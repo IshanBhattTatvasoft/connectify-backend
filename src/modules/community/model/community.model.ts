@@ -20,6 +20,7 @@ export class Community extends Document {
 }
 
 export const CommunitySchema = SchemaFactory.createForClass(Community);
+export type CommunityDocument = Community & Document;
 
 CommunitySchema.pre('findOneAndUpdate', function (next) {
   this.set({ updated_at: new Date() });

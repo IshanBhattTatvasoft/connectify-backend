@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { ObjectId } from 'mongodb';
 import { Lookup } from './model/lookup.model';
 import {
   LookupDetail,
@@ -12,6 +13,7 @@ import {
 } from './model/lookup_details.model';
 import { AddLookupDetailDto } from './dto/lookup-detail.dto';
 import { ErrorMessages, ErrorType } from 'src/helper';
+import { GetLookupDetail } from './interface/lookup_detail.interface';
 
 @Injectable()
 export class LookupsService {
@@ -21,25 +23,44 @@ export class LookupsService {
     private lookupDetailModel: Model<LookupDetail>,
   ) {}
 
-  async getLookupDetailByCodes(lookupCode: string, lookupDetailCode: string) {
+  async getLookupDetailByCodes(lookupCode: string, lookupDetailCode: string): Promise<GetLookupDetail> {
     console.log('lookupCode received:', lookupCode);
+    console.log('lookupDetailCode received:', lookupDetailCode);
     const lookup = await this.lookupModel.findOne({
-      code: { $regex: `^${lookupCode.trim()}$`, $options: 'i' },
+      code: lookupCode,
     });
     console.log('lookup found:', lookup);
-    if (!lookup)
-      throw new NotFoundException(`Lookup not found for code: ${lookupCode}`);
-
+    if (!lookup) {
+      throw new BadRequestException({
+        error: ErrorType.Lookup.LookupNotFound,
+        message: ErrorMessages[ErrorType.Lookup.LookupNotFound],
+      });
+    }
     const lookupDetail = await this.lookupDetailModel
-      .findOne({ lookup_id: lookup._id, code: lookupDetailCode })
-      .populate('lookup_id', 'code name');
+    .findOne({ lookup_id: lookup._id, code: lookupDetailCode })
+    
+    console.log('lookup detail found:', lookupDetail);
+    if (!lookupDetail) {
+      throw new BadRequestException({
+        error: ErrorType.Lookup.LookupNotFound,
+        message: ErrorMessages[ErrorType.Lookup.LookupNotFound],
+      });
+    }
 
-    if (!lookupDetail)
-      throw new NotFoundException(
-        `Lookup detail not found for code: ${lookupDetailCode}`,
-      );
-
-    return lookupDetail;
+    const lookupDetailResponse : GetLookupDetail = {
+      lookup: {
+        id: (lookup._id as ObjectId).toString(),
+        name: lookup.name,
+        code: lookup.code
+      },
+      lookup_detail: {
+        id: (lookupDetail._id as ObjectId).toString(),
+        name: lookupDetail.name,
+        code: lookupDetail.code
+      }
+    }
+    
+    return lookupDetailResponse;
   }
 
   async createLookupValues(

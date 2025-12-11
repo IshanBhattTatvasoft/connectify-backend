@@ -108,7 +108,6 @@ export async function generateToken(
     email: user.email,
     username: user.username,
     status: user_status,
-    iat: Math.floor(Date.now() / 1000),
   };
   const accessToken = await jwtService.signAsync(payload as any, {
     secret: process.env.ACCESS_TOKEN_SECRET,

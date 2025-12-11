@@ -8,6 +8,9 @@ export enum ErrorType {
   SafeIntError = 'Common.SafeIntError',
   OnlyAlphaNumericSpaceDashAllowed = 'Commmon.OnlyAlphaNumericSpaceDashAllowed',
   OnlyAlphabetsUnderscoreAllowed = 'Common.OnlyAlphabetsUnderscoreAllowed',
+  OnlyAlphabetsAllowed = 'Common.OnlyAlphabetsAllowed',
+  InvalidMobileNumber = 'Common.InvalidMobileNumber',
+  InvalidAddress = 'Common.InvalidAddress',
 
   // Auth Errors
   InvalidEmail = 'Auth.InvalidEmail',
@@ -17,10 +20,17 @@ export enum ErrorType {
   InvalidPassword = 'Auth.InvalidPassword',
   EmailPasswordRequired = 'Auth.EmailPasswordRequired',
   UserNotFound = 'Auth.UserNotFound',
+  ExpiredOtp = 'Auth.ExpiredOtp',
+  InvalidOtp = 'Auth.InvalidOtp',
+  InvalidToken = 'Auth.InvalidToken',
 
   // Lookup Errors
   LookupNotFound = 'Lookup.LookupNotFound',
-  LookupValueExists = 'Lookup.LookupValueExists'
+  LookupValueExists = 'Lookup.LookupValueExists',
+
+  // Community Errors
+  CommunityAlreadyExists = 'Community.CommunityAlreadyExists',
+  CategoryNotFound = 'Community.CategoryNotFound'
 }
 
 // Namespace grouping for dot-style usage
@@ -33,7 +43,10 @@ export namespace ErrorType {
     InternalServerError: ErrorType.InternalServerError,
     SafeIntError: ErrorType.SafeIntError,
     OnlyAlphaNumericSpaceDashAllowed: ErrorType.OnlyAlphaNumericSpaceDashAllowed,
-    OnlyAlphabetsUnderscoreAllowed: ErrorType.OnlyAlphabetsUnderscoreAllowed
+    OnlyAlphabetsUnderscoreAllowed: ErrorType.OnlyAlphabetsUnderscoreAllowed,
+    OnlyAlphabetsAllowed: ErrorType.OnlyAlphabetsAllowed,
+    InvalidMobileNumber: ErrorType.InvalidMobileNumber,
+    InvalidAddress: ErrorType.InvalidAddress
   };
 
   export const Auth = {
@@ -43,8 +56,16 @@ export namespace ErrorType {
     AccountNotActive: ErrorType.AccountNotActive,
     InvalidPassword: ErrorType.InvalidPassword,
     EmailPasswordRequired: ErrorType.EmailPasswordRequired,
-    UserNotFound: ErrorType.UserNotFound
+    UserNotFound: ErrorType.UserNotFound,
+    ExpiredOtp: ErrorType.ExpiredOtp,
+    InvalidOtp: ErrorType.InvalidOtp,
+    InvalidToken: ErrorType.InvalidToken,
   };
+
+  export const Community = {
+    CommunityAlreadyExists: ErrorType.CommunityAlreadyExists,
+    CategoryNotFound: ErrorType.CategoryNotFound
+  }
 
   export const Lookup = {
     LookupNotFound: ErrorType.LookupNotFound,
@@ -61,4 +82,26 @@ export enum UsersOperation {
 
 export enum LookupsOperation {
   CREATED = 'CREATED'
+}
+
+export enum CommunityOperation {
+  CREATE = 'Community created successfully'
+}
+
+export enum Lookup {
+  ACCOUNT_STATUS = 'ACCOUNT_STATUS',
+  POST_TYPE = 'POST_TYPE',
+  ROLE = 'ROLE'
+}
+
+export enum LookupDetails {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  DELETED = 'DELETED',
+  TEXT = 'TEXT',
+  IMAGE = 'IMAGE',
+  VIDEO = 'VIDEO',
+  OWNER = 'OWNER',
+  MODERATOR = 'MODERATOR',
+  MEMBER = 'MEMBER'
 }

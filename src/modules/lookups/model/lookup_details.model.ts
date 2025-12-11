@@ -16,13 +16,13 @@ export class LookupDetail extends Document {
   lookup_id: Types.ObjectId;
 }
 
-export const LookupDetailsSchema = SchemaFactory.createForClass(LookupDetail);
+export const LookupDetailSchema = SchemaFactory.createForClass(LookupDetail);
 export type LookupDetailDocument = LookupDetail & Document;
 
-LookupDetailsSchema.pre('findOneAndUpdate', function (next) {
+LookupDetailSchema.pre('findOneAndUpdate', function (next) {
     this.set({updated_at: new Date()});
     next();
 });
 
-LookupDetailsSchema.index({ lookup_id: 1 });
-LookupDetailsSchema.index({ lookup_id: 1, code: 1 }, { unique: true });
+LookupDetailSchema.index({ lookup_id: 1 });
+LookupDetailSchema.index({ lookup_id: 1, code: 1 }, { unique: true });

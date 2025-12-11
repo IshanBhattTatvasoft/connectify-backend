@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { User } from 'src/modules/users/model/users.model';
-import { Comments } from 'src/modules/comments/model/comments.model';
+import { Comments } from './comments.model';
 import { Types } from 'mongoose';
 
 @Schema({
@@ -20,23 +20,11 @@ export class Post extends Document {
   @Prop({ type: String, default: null })
   content?: string;
 
-  @Prop({ enum: ['text', 'link', 'image', 'video'], default: 'text' })
-  type: string;
+  @Prop({ type: Types.ObjectId, ref: 'LookupDetail', required: true })
+  content_type_id: Types.ObjectId;
 
   @Prop()
-  media_url: string;
-
-  @Prop({ default: 0 })
-  upvotes: number;
-
-  @Prop({ default: 0 })
-  downvotes: number;
-
-  @Prop({ default: false })
-  is_deleted: boolean;
-
-  @Prop({ default: 0 })
-  total_comments: number;
+  media_url: Array<string>;
 }
 
 export const PostSchema = SchemaFactory.createForClass(Post);

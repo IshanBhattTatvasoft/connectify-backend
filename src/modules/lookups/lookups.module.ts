@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Lookup, LookupSchema } from './model/lookup.model';
-import { LookupDetail, LookupDetailsSchema } from './model/lookup_details.model';
+import { LookupDetail, LookupDetailSchema } from './model/lookup_details.model';
 import { LookupsService } from './lookups.service';
 import { LookupsController } from './lookups.controller';
 
@@ -9,7 +9,7 @@ import { LookupsController } from './lookups.controller';
   imports: [
     MongooseModule.forFeature([
       { name: Lookup.name, schema: LookupSchema },
-      { name: LookupDetail.name, schema: LookupDetailsSchema },
+      { name: LookupDetail.name, schema: LookupDetailSchema },
     ]),
   ],
   controllers: [LookupsController],

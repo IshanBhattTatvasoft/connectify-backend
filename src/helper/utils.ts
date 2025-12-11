@@ -64,3 +64,11 @@ export function toLookupDetailResponse(doc: any): LookupDetail {
     name: doc.name,
   };
 }
+
+export function convertCodeToName(code: string): string {
+  return code
+  .toLowerCase()
+  .split('_')
+  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+  .join(' ');
+}

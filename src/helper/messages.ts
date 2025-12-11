@@ -11,6 +11,7 @@ export const ErrorMessages: Record<ErrorType, string> = {
   [ErrorType.InvalidEmail]: 'Please enter a valid email address.',
   [ErrorType.InvalidCredentials]: 'Invalid credentials',
   [ErrorType.InvalidGoogleToken]: 'Invalid Google Token',
+  [ErrorType.InvalidToken]: 'Invalid or expired token',
   [ErrorType.AccountNotActive]:
     'Your account is not active. Please contact your system administrator.',
   [ErrorType.InvalidPassword]:
@@ -23,8 +24,17 @@ export const ErrorMessages: Record<ErrorType, string> = {
     'Only alphabets, numbers, spaces, and dashes are allowed.',
   [ErrorType.OnlyAlphabetsUnderscoreAllowed]:
     'Only alphabets and underscores are allowed.',
+  [ErrorType.OnlyAlphabetsAllowed]: 'Only alphabets are allowed',
   [ErrorType.LookupNotFound]: 'Lookup not found.',
-  [ErrorType.LookupValueExists]: 'Lookup value already exists. Please try some other value.'
+  [ErrorType.LookupValueExists]: 'Lookup value already exists. Please try some other value.',
+  [ErrorType.ExpiredOtp]: 'OTP is expired. Please try again.',
+  [ErrorType.InvalidOtp]: 'OTP is invalid',
+  [ErrorType.InvalidMobileNumber]: 'Mobile number is invalid. Please enter a valid one.',
+  [ErrorType.InvalidAddress]: 'Address is invalid. Please enter a valid one.',
+
+  // Community
+  [ErrorType.CommunityAlreadyExists]: 'Community with same name already exists',
+  [ErrorType.CategoryNotFound]: 'This interest category does not exist',
 };
 
 export const Messages = {

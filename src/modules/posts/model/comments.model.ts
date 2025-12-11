@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
 @Schema({
+  collection: 'comments',
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
 })
 export class Comments extends Document {

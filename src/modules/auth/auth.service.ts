@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import mongoose, { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { LoginUserDTO } from './dto/login-user.dto';
 import { SignupUserDTO } from './dto/signup-user.dto';
@@ -33,6 +33,22 @@ import {
   LookupDetail,
   LookupDetailDocument,
 } from '../lookups/model/lookup_details.model';
+import { UserDetails } from 'src/helper/interface';
+import {
+  CommunityMember,
+  CommunityMemberDocument,
+} from '../community/model/community-member.model';
+import {
+  GetProfileResponseDto,
+  UpdateProfileDto,
+  UpdateProfileResponseDto,
+} from './dto/user-profile.dto';
+import {
+  Community,
+  CommunityDocument,
+} from '../community/model/community.model';
+import { LookupsService } from '../lookups/lookups.service';
+import { Lookup, LookupDetails } from 'src/helper/enum';
 
 @Injectable()
 export class AuthService {
@@ -47,12 +63,12 @@ export class AuthService {
     @InjectModel(LookupDetail.name)
     private lookupDetailModel: Model<LookupDetailDocument>,
     private readonly jwtService: JwtService,
+    private lookupService: LookupsService,
   ) {}
 
   async login(
     dto: LoginUserDTO,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    console.log('dto::: ', dto);
     if (dto.id_token) {
       return handleGoogleAuthFlow(
         dto.id_token,
@@ -61,30 +77,35 @@ export class AuthService {
         this.jwtService,
       );
     }
+    
 
     if (!dto.email || !dto.password) {
       throw new UnauthorizedException({
         error: ErrorType.Auth.EmailPasswordRequired,
-        message: ErrorMessages[ErrorType.EmailPasswordRequired]
+        message: ErrorMessages[ErrorType.EmailPasswordRequired],
       });
     }
 
     const lowerEmail = dto.email.trim().toLowerCase();
 
     const existing = await this.userModel.findOne({ email: lowerEmail });
-    console.log('existing::: ', existing);
     if (!existing) {
       throw new UnauthorizedException({
         error: ErrorType.Auth.UserNotFound,
-        messages: ErrorMessages[ErrorType.UserNotFound]
+        messages: ErrorMessages[ErrorType.UserNotFound],
       });
     }
 
-    let userStatus = await this.lookupDetailModel.findOne({
-      id: existing.status_id,
-    });
-    if (!userStatus || userStatus.code !== 'ACTIVE') {
-      throw new BadRequestException('User not active');
+    const lookupDetail = await this.lookupService.getLookupDetailByCodes(
+      Lookup.ACCOUNT_STATUS,
+      LookupDetails.ACTIVE,
+    );
+
+    if (existing.status_id.toString() !== lookupDetail.lookup_detail.id) {
+      throw new BadRequestException({
+        error: ErrorType.Auth.AccountNotActive,
+        message: ErrorMessages[ErrorType.Auth.AccountNotActive],
+      });
     }
 
     if (existing.provider_id !== 'google' && existing.password_hash) {
@@ -96,7 +117,7 @@ export class AuthService {
         throw new BadRequestException('Invalid credentials');
     }
 
-    return generateToken(existing[0], 'ACTIVE', this.jwtService);
+    return generateToken(existing, 'ACTIVE', this.jwtService);
   }
 
   async signUp(
@@ -112,20 +133,41 @@ export class AuthService {
     }
 
     if (!dto.email || !dto.password) {
-      throw new BadRequestException('Email and password are required');
+      throw new BadRequestException({
+        error: ErrorType.Auth.EmailPasswordRequired,
+        message: ErrorMessages[ErrorType.EmailPasswordRequired],
+      });
     }
 
     const existing = await this.userModel.findOne({ email: dto.email });
-    if (existing) {
-      throw new BadRequestException('User already exists');
+    if (!existing) {
+      throw new BadRequestException({
+        error: ErrorType.Common.Conflict,
+        message: ErrorMessages[ErrorType.Conflict],
+      });
     }
+    const lookupDetail = await this.lookupService.getLookupDetailByCodes(
+      Lookup.ACCOUNT_STATUS,
+      LookupDetails.ACTIVE,
+    );
+
+    if (existing.status_id.toString() !== lookupDetail.lookup_detail.id) {
+      throw new BadRequestException({
+        error: ErrorType.Auth.AccountNotActive,
+        message: ErrorMessages[ErrorType.Auth.AccountNotActive],
+      });
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hash = await bcrypt.hash(dto.password, salt);
+
     const username = dto.email.split('@')[0];
+
     const newUser = new this.userModel({
       username: username,
       email: dto.email,
       password_hash: hash,
+      status_id: existing?.status_id,
     });
 
     const savedUser = await newUser.save();
@@ -139,6 +181,8 @@ export class AuthService {
     user: Partial<User>;
   }> {
     console.log('code::: ', code);
+    let userStatus = '';
+
     const { tokens } = await this.oauthClient.getToken(code);
     if (!tokens.id_token) {
       throw new BadRequestException('No ID token returned from Google');
@@ -155,7 +199,17 @@ export class AuthService {
     }
 
     let user = await this.userModel.findOne({ email: payload.email });
-    let userStatus = '';
+    const lookupDetail = await this.lookupService.getLookupDetailByCodes(
+      Lookup.ACCOUNT_STATUS,
+      LookupDetails.ACTIVE,
+    );
+
+    if (user && user.status_id.toString() !== lookupDetail.lookup_detail.id) {
+      throw new BadRequestException({
+        error: ErrorType.Auth.AccountNotActive,
+        message: ErrorMessages[ErrorType.Auth.AccountNotActive],
+      });
+    }
 
     if (!user) {
       user = new this.userModel({
@@ -164,12 +218,8 @@ export class AuthService {
         provider: 'google',
         provider_id: payload.sub,
         name: payload.name,
-        status: {
-          name: 'active',
-          code: 'ACTIVE',
-        },
+        status_id: lookupDetail.lookup_detail.id,
       });
-      userStatus = 'ACTIVE';
 
       await user.save();
     } else {
@@ -202,14 +252,12 @@ export class AuthService {
     console.log('user::: ', user);
     if (!user) return;
 
-    const userStatus = await this.lookupDetailModel.findOne({
-      id: user?.status_id,
-    });
+    const lookupDetail = await this.lookupService.getLookupDetailByCodes(Lookup.ACCOUNT_STATUS, LookupDetails.ACTIVE);
 
-    if (!userStatus?.code || userStatus?.code !== 'ACTIVE') {
+    if (user.status_id.toString() !== lookupDetail.lookup_detail.id) {
       throw new BadRequestException({
-        error: ErrorType.AccountNotActive,
-        message: ErrorMessages[ErrorType.AccountNotActive],
+        error: ErrorType.Auth.AccountNotActive,
+        message: ErrorMessages[ErrorType.Auth.AccountNotActive],
       });
     }
 
@@ -237,12 +285,21 @@ export class AuthService {
     const lowerEmail = email.toLowerCase();
     const user = await this.userModel.findOne({ email: lowerEmail });
 
-    if (!user || !user.otp || !user.otp_expiration_time) {
-      throw new BadRequestException('Invalid or expired OTP');
+    if (!user) {
+      throw new BadRequestException({
+        error: ErrorType.Auth.UserNotFound,
+        messages: ErrorMessages[ErrorType.UserNotFound],
+      });
     }
 
-    if (new Date() > user.otp_expiration_time) {
-      throw new BadRequestException('OTP expired');
+    if (
+      !user.otp ||
+      (user.otp_expiration_time && new Date() > user.otp_expiration_time)
+    ) {
+      throw new BadRequestException({
+        error: ErrorType.Auth.ExpiredOtp,
+        message: ErrorMessages[ErrorType.ExpiredOtp],
+      });
     }
 
     console.log('otp::: ', otp);
@@ -250,7 +307,10 @@ export class AuthService {
 
     const isValid = verifyOtpHash(otp, user.otp);
     if (!isValid) {
-      throw new BadRequestException('Invalid OTP');
+      throw new BadRequestException({
+        error: ErrorType.Auth.InvalidOtp,
+        message: ErrorMessages[ErrorType.InvalidOtp],
+      });
     }
 
     const idAsString = (user._id as ObjectId).toString();
@@ -277,7 +337,10 @@ export class AuthService {
     try {
       payload = this.jwtService.verify(token);
     } catch {
-      throw new UnauthorizedException('Invalid or expired token');
+      throw new UnauthorizedException({
+        error: ErrorType.Auth.InvalidToken,
+        message: ErrorMessages[ErrorType.InvalidToken],
+      });
     }
 
     console.log('payload::: ', payload);
@@ -299,5 +362,180 @@ export class AuthService {
     user.password_hash = hash;
     user.is_reset_token_used = true;
     await user.save();
+  }
+
+  async getProfileDetails(user: UserDetails): Promise<GetProfileResponseDto> {
+    const userId = user.id;
+
+    const existingUser = await this.userModel.findById(userId);
+
+    if(!existingUser){
+      throw new BadRequestException({
+        error: ErrorType.Auth.UserNotFound,
+        message: ErrorMessages[ErrorType.Auth.UserNotFound]
+      });
+    }
+
+    const lookupDetail = await this.lookupService.getLookupDetailByCodes(Lookup.ACCOUNT_STATUS, LookupDetails.ACTIVE);
+
+    if (existingUser.status_id.toString() !== lookupDetail.lookup_detail.id) {
+      throw new BadRequestException({
+        error: ErrorType.Auth.AccountNotActive,
+        message: ErrorMessages[ErrorType.Auth.AccountNotActive],
+      });
+    }
+
+    // Single aggregation query → gets user + all community names in ONE DB call
+    const result = await this.userModel
+      .aggregate([
+        {
+          $match: { _id: new mongoose.Types.ObjectId(userId) },
+        },
+        {
+          $lookup: {
+            from: 'community_member', // ← exact collection name in MongoDB
+            localField: '_id',
+            foreignField: 'user_id',
+            as: 'memberships',
+          },
+        },
+        {
+          $unwind: { path: '$memberships', preserveNullAndEmptyArrays: true },
+        },
+        {
+          $lookup: {
+            from: 'communities', // ← exact collection name
+            localField: 'memberships.community_id',
+            foreignField: '_id',
+            as: 'memberships.community',
+          },
+        },
+        {
+          $group: {
+            _id: '$_id',
+            username: { $first: '$username' },
+            email: { $first: '$email' },
+            mobile_no: { $first: '$mobile_no' },
+            address: { $first: '$address' },
+            created_at: { $first: '$created_at' },
+            communityNames: {
+              $push: {
+                $cond: [
+                  { $ifNull: ['$memberships.community.name', false] },
+                  '$memberships.community.name',
+                  '$$REMOVE',
+                ],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            username: 1,
+            email: 1,
+            password_hash: 0,
+            otp: 0,
+            otp_expiration_time: 0,
+            mobile_no: { $ifNull: ['$mobile_no', undefined] },
+            address: { $ifNull: ['$address', undefined] },
+            created_date: '$created_at',
+            communities: '$communityNames',
+          },
+        },
+      ])
+      .exec();
+
+    if (!result || result.length === 0) {
+      throw new UnauthorizedException({
+        error: ErrorType.Auth.UserNotFound,
+        message: ErrorMessages[ErrorType.UserNotFound],
+      });
+    }
+
+    return result[0] as GetProfileResponseDto;
+  }
+
+  async updateProfileDetails(
+    user: UserDetails,
+    dto: UpdateProfileDto,
+  ): Promise<UpdateProfileResponseDto> {
+    const userId = user.id;
+
+    const existingUser = await this.userModel.findById(userId);
+
+    if(!existingUser){
+      throw new BadRequestException({
+        error: ErrorType.Auth.UserNotFound,
+        message: ErrorMessages[ErrorType.Auth.UserNotFound]
+      });
+    }
+
+    const lookupDetail = await this.lookupService.getLookupDetailByCodes(Lookup.ACCOUNT_STATUS, LookupDetails.ACTIVE);
+
+    if (existingUser.status_id.toString() !== lookupDetail.lookup_detail.id) {
+      throw new BadRequestException({
+        error: ErrorType.Auth.AccountNotActive,
+        message: ErrorMessages[ErrorType.Auth.AccountNotActive],
+      });
+    }
+
+    if (
+      (dto.mobile_number && dto.mobile_number?.trim() == '') ||
+      typeof dto.mobile_number !== 'string'
+    ) {
+      throw new BadRequestException({
+        error: ErrorType.Common.InvalidMobileNumber,
+        message: ErrorMessages[ErrorType.Common.InvalidMobileNumber],
+      });
+    }
+
+    if (
+      (dto.address && dto.address.trim() == '') ||
+      typeof dto.address !== 'string'
+    ) {
+      throw new BadRequestException({
+        error: ErrorType.Common.InvalidAddress,
+        message: ErrorMessages[ErrorType.Common.InvalidAddress],
+      });
+    }
+
+    if (dto.mobile_number) dto.mobile_number = dto.mobile_number.trim();
+    if (dto.address) dto.address = dto.address.trim();
+
+    const updatedData = {
+      ...(dto.mobile_number !== undefined && {
+        mobile_no: dto.mobile_number || null,
+      }),
+      ...(dto.address !== undefined && { address: dto.address || null }),
+    };
+
+    if (existingUser && Object.keys(updatedData).length === 0)
+      return {
+        username: existingUser.username,
+        email: existingUser.email,
+        address: existingUser.address,
+        mobile_no: existingUser.mobile_no,
+      };
+
+    // new: tells whether the method returns the modified document or the original document before the update
+    // Set new: true means the application returns the updated state of the document after the operation
+    // runValidators: option ensures that Mongoose schema validators are executed during an update operation
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        { $set: updatedData },
+        { new: true, runValidators: true },
+      )
+      .select('username email mobile_no address');
+
+    if (!updatedUser) {
+      throw new NotFoundException({
+        error: ErrorType.Auth.UserNotFound,
+        message: ErrorMessages[ErrorType.UserNotFound],
+      });
+    }
+
+    return updatedUser;
   }
 }
